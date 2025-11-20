@@ -238,7 +238,7 @@ function my_change_subject_mail($WPCF7_ContactForm)
                     return;
                 }
  */  
- if (!empty($honeypot)) {
+ /* if (!empty($honeypot)) {
     // check that honeypot really looks like a bot, not a browser artefact
     if (strlen($honeypot) > 2) {
         error_log("[SPAM][honeypot triggered] $ip, $email");
@@ -246,7 +246,7 @@ function my_change_subject_mail($WPCF7_ContactForm)
         $wpcf7->skip_mail = true;
         return;
     }
-}
+} */
 
          /*       if (preg_match('/(test|fake|mailinator|example)\./i', $email)) {
     error_log("[SPAM][bad email domain] $email");
@@ -288,7 +288,7 @@ function my_change_subject_mail($WPCF7_ContactForm)
                     return;
                 }
 								
-								// --- Extra Spam Email Checks ---
+						/* 		// --- Extra Spam Email Checks ---
 				$spam_domains = [
 					'mailinator.com', 'tempmail', '10minutemail', 'guerrillamail', 'sharklasers',
 					'example.com', 'test.com', 'yopmail', 'dispostable', 'trashmail', 'fakeinbox',
@@ -327,7 +327,7 @@ function my_change_subject_mail($WPCF7_ContactForm)
 						return;
 					}
 				}
-
+ */
 
 				// MX record validation (real domain check)
 				$domain = substr(strrchr($email, "@"), 1);
@@ -3038,3 +3038,49 @@ function block_spammy_emails($result, $tag) {
 
     return $result;
 }
+
+// ✅ Validate first name (jmeno) and last name (prijmeni)
+add_filter('wpcf7_validate_text*', 'cf7_validate_name_fields', 20, 2);
+add_filter('wpcf7_validate_text',  'cf7_validate_name_fields', 20, 2);
+
+function cf7_validate_name_fields($result, $tag) {
+    $field_name = $tag->name;
+
+    // Validate only these specific fields
+    if (in_array($field_name, ['jmeno', 'prijmenu'])) {
+        $value = sanitize_text_field($_POST[$field_name] ?? '');
+
+        // 1️⃣ Check for numbers
+        if (preg_match('/[0-9]/', $value)) {
+            $result->invalidate($tag, __('Jméno nesmí obsahovat čísla.', 'contact-form-7'));
+            return $result;
+        }
+
+        // 2️⃣ Check for too short names
+        if (strlen($value) < 2) {
+            $result->invalidate($tag, __('Jméno nebo příjmení je příliš krátké.', 'contact-form-7'));
+            return $result;
+        }
+
+        // 3️⃣ Check for long gibberish (e.g. “Lakhvirtdsfdsf”, “Qwrtplkjhgf”)
+        if (preg_match('/[bcdfghjklmnpqrstvwxyz]{6,}/i', $value)) {
+            $result->invalidate($tag, __('Zadání obsahuje neplatné znaky.', 'contact-form-7'));
+            return $result;
+        }
+
+        // 4️⃣ Check for all caps (e.g. “LAKHVIR”)
+        if (preg_match('/^[A-ZČĎÉĚÍŇÓŘŠŤÚŮÝŽ]{3,}$/u', $value)) {
+            $result->invalidate($tag, __('Jméno nebo příjmení nemůže být psáno velkými písmeny.', 'contact-form-7'));
+            return $result;
+        }
+
+        // 5️⃣ Optional — check for repeated characters (e.g. “aaaabbbb”)
+        if (preg_match('/(.)\1{3,}/', $value)) {
+            $result->invalidate($tag, __('Zadání obsahuje opakující se znaky.', 'contact-form-7'));
+            return $result;
+        }
+    }
+
+    return $result;
+}
+
